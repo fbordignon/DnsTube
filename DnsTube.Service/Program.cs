@@ -104,7 +104,7 @@ static async Task ConfigureHttpClientsAsync(WebApplicationBuilder builder, ISett
 			ConfigureIPv6Handler(httpClientBuilder, selectedAdapterName!, needsCustomHandler);
 		}else if (needsCustomHandler)
 		{
-            ConfigureIPv4Handler(httpClientBuilder, selectedAdapterName!);
+			ConfigureIPv4Handler(httpClientBuilder, selectedAdapterName!);
 		}
 	}
 }
