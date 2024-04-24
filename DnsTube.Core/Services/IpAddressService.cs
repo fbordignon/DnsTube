@@ -31,51 +31,8 @@ namespace DnsTube.Core.Services
 
 			var settings = await _settingsService.GetAsync();
 			var url = protocol == IpSupport.IPv4 ? settings.IPv4_API : settings.IPv6_API;
-
-			HttpClient httpClient;
-
-			if (protocol == IpSupport.IPv4){
-				httpClient = _httpClientFactory.CreateClient(HttpClientName.IpAddressV4.ToString());
-			}
-			else
-			{
-				httpClient = new HttpClient(new SocketsHttpHandler()
-				{
-					ConnectCallback = async (context, cancellationToken) =>
-					{
-						// Use DNS to look up the IP addresses of the target host:
-						// - IP v4: AddressFamily.InterNetwork
-						// - IP v6: AddressFamily.InterNetworkV6
-						// - IP v4 or IP v6: AddressFamily.Unspecified
-						// note: this method throws a SocketException when there is no IP address for the host
-						var entry = await Dns.GetHostEntryAsync(context.DnsEndPoint.Host, AddressFamily.InterNetworkV6, cancellationToken);
-
-						// Open the connection to the target host/port
-						var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-
-						// Turn off Nagle's algorithm since it degrades performance in most HttpClient scenarios.
-						socket.NoDelay = true;
-
-						try
-						{
-							await socket.ConnectAsync(entry.AddressList, context.DnsEndPoint.Port, cancellationToken);
-
-							// If you want to choose a specific IP address to connect to the server
-							// await socket.ConnectAsync(
-							//    entry.AddressList[Random.Shared.Next(0, entry.AddressList.Length)],
-							//    context.DnsEndPoint.Port, cancellationToken);
-
-							// Return the NetworkStream to the caller
-							return new NetworkStream(socket, ownsSocket: true);
-						}
-						catch
-						{
-							socket.Dispose();
-							throw;
-						}
-					}
-				});
-			}
+			var httpClientName = protocol == IpSupport.IPv4 ? HttpClientName.IpAddressV4 : HttpClientName.IpAddressV6;
+			var httpClient = _httpClientFactory.CreateClient(httpClientName.ToString());
 
 			for (var attempts = 0; attempts < maxAttempts; attempts++)
 			{
