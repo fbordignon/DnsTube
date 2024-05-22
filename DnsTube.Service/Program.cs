@@ -100,14 +100,16 @@ static async Task ConfigureHttpClientsAsync(WebApplicationBuilder builder, ISett
 	foreach (var config in clientConfigurations)
 	{
 		var httpClientBuilder = builder.Services.AddHttpClient(config.Key, config.Value);
-		if (needsCustomHandler)
+		if (config.Key == HttpClientName.IpAddressV6.ToString()){
+			ConfigureIPv6Handler(httpClientBuilder, selectedAdapterName!, needsCustomHandler);
+		}else if (needsCustomHandler)
 		{
-			ConfigureHandler(httpClientBuilder, selectedAdapterName!);
+			ConfigureIPv4Handler(httpClientBuilder, selectedAdapterName!);
 		}
 	}
 }
 
-static void ConfigureHandler(IHttpClientBuilder httpClientBuilder, string selectedAdapterName)
+static void ConfigureIPv4Handler(IHttpClientBuilder httpClientBuilder, string selectedAdapterName)
 {
 	httpClientBuilder.ConfigurePrimaryHttpMessageHandler(() =>
 	{
@@ -115,7 +117,7 @@ static void ConfigureHandler(IHttpClientBuilder httpClientBuilder, string select
 		handler.ConnectCallback = async (context, cancellationToken) =>
 		{
 			var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-			var ipAddress = GetNetworkAdapterIPAddress(selectedAdapterName);
+			var ipAddress = GetNetworkAdapterIPAddress(selectedAdapterName, AddressFamily.InterNetwork);
 			var localEndPoint = new IPEndPoint(IPAddress.Parse(ipAddress), 0);
 			socket.Bind(localEndPoint);
 			await socket.ConnectAsync(context.DnsEndPoint, cancellationToken);
@@ -126,7 +128,41 @@ static void ConfigureHandler(IHttpClientBuilder httpClientBuilder, string select
 	});
 }
 
-static string GetNetworkAdapterIPAddress(string? adapterName)
+
+static void ConfigureIPv6Handler(IHttpClientBuilder httpClientBuilder, string selectedAdapterName, bool needsCustomHandler)
+{
+	httpClientBuilder.ConfigurePrimaryHttpMessageHandler(() =>
+	{
+		var handler = new SocketsHttpHandler();
+		handler.ConnectCallback = async (context, cancellationToken) =>
+		{
+			var entry = await Dns.GetHostEntryAsync(context.DnsEndPoint.Host, AddressFamily.InterNetworkV6, cancellationToken);
+			var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+			socket.NoDelay = true;
+			if (needsCustomHandler){
+				var ipAddress = GetNetworkAdapterIPAddress(selectedAdapterName, AddressFamily.InterNetworkV6);
+				var localEndPoint = new IPEndPoint(IPAddress.Parse(ipAddress), 0);
+				socket.Bind(localEndPoint);
+			}
+
+            try
+            {
+                await socket.ConnectAsync(entry.AddressList, context.DnsEndPoint.Port, cancellationToken);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+		};
+
+		return handler;
+	});
+}
+
+
+static string GetNetworkAdapterIPAddress(string? adapterName, AddressFamily addressFamily)
 {
 	if (adapterName is null)
 	{
@@ -143,7 +179,7 @@ static string GetNetworkAdapterIPAddress(string? adapterName)
 	}
 
 	var properties = adapter.GetIPProperties();
-	var ipAddress = properties.UnicastAddresses.FirstOrDefault(x => x.Address.AddressFamily == AddressFamily.InterNetwork)?.Address;
+	var ipAddress = properties.UnicastAddresses.FirstOrDefault(x => x.Address.AddressFamily == addressFamily)?.Address;
 
 	if (ipAddress is null)
 	{
