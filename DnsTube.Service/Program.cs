@@ -100,9 +100,11 @@ static async Task ConfigureHttpClientsAsync(WebApplicationBuilder builder, ISett
 	foreach (var config in clientConfigurations)
 	{
 		var httpClientBuilder = builder.Services.AddHttpClient(config.Key, config.Value);
-		if (config.Key == HttpClientName.IpAddressV6.ToString()){
+		if (config.Key == HttpClientName.IpAddressV6.ToString())
+		{
 			ConfigureIPv6Handler(httpClientBuilder, selectedAdapterName!, needsCustomHandler);
-		}else if (needsCustomHandler)
+		}
+		else if (needsCustomHandler)
 		{
 			ConfigureIPv4Handler(httpClientBuilder, selectedAdapterName!);
 		}
@@ -139,22 +141,23 @@ static void ConfigureIPv6Handler(IHttpClientBuilder httpClientBuilder, string se
 			var entry = await Dns.GetHostEntryAsync(context.DnsEndPoint.Host, AddressFamily.InterNetworkV6, cancellationToken);
 			var socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
 			socket.NoDelay = true;
-			if (needsCustomHandler){
+			if (needsCustomHandler)
+			{
 				var ipAddress = GetNetworkAdapterIPAddress(selectedAdapterName, AddressFamily.InterNetworkV6);
 				var localEndPoint = new IPEndPoint(IPAddress.Parse(ipAddress), 0);
 				socket.Bind(localEndPoint);
 			}
 
-            try
-            {
-                await socket.ConnectAsync(entry.AddressList, context.DnsEndPoint.Port, cancellationToken);
-                return new NetworkStream(socket, ownsSocket: true);
-            }
-            catch
-            {
-                socket.Dispose();
-                throw;
-            }
+			try
+			{
+				await socket.ConnectAsync(entry.AddressList, context.DnsEndPoint.Port, cancellationToken);
+				return new NetworkStream(socket, ownsSocket: true);
+			}
+			catch
+			{
+				socket.Dispose();
+				throw;
+			}
 		};
 
 		return handler;
