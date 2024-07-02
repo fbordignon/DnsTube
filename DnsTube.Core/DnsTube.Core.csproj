@@ -16,9 +16,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Dapper" Version="2.1.15" />
+		<PackageReference Include="Dapper" Version="2.1.35" />
 		<PackageReference Include="Lib.AspNetCore.ServerSentEvents" Version="8.3.1" />
-		<PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.13" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.6" />
 	</ItemGroup>
 
 </Project>
